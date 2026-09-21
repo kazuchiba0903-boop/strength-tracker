@@ -65,11 +65,26 @@
     color:var(--ink-soft);
     font-weight:700;
   }
+  .date-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:2px;
+  }
   .date-heading{
     font-size:24px;
     font-weight:700;
-    margin-top:2px;
     text-wrap:balance;
+  }
+  .date-nav{display:flex;align-items:center;gap:6px;flex:none;}
+  .nav-btn{
+    width:34px;height:34px;border-radius:50%;border:none;flex:none;
+    background:var(--surface);box-shadow:var(--shadow);color:var(--ink);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .nav-btn:disabled{opacity:.3;cursor:default;}
+  .nav-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;}
+  .today-btn{
+    border:none;background:var(--surface-2);color:var(--ink-soft);
+    font-size:12px;font-weight:700;padding:0 12px;height:34px;border-radius:999px;
+    cursor:pointer;font-family:inherit;white-space:nowrap;
   }
 
   .ring-card{
@@ -80,6 +95,9 @@
     display:flex;
     align-items:center;
     gap:20px;
+    position:sticky;
+    top:env(safe-area-inset-top, 0px);
+    z-index:5;
   }
   .ring-wrap{position:relative;width:132px;height:132px;flex:none;}
   .ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg);}
@@ -115,8 +133,10 @@
     width:100%;aspect-ratio:1;max-width:34px;border-radius:8px;
     background:var(--ring-track);
   }
-  .history-sq.today{outline:2px solid var(--accent);outline-offset:2px;}
+  .history-sq{cursor:pointer;}
+  .history-sq.selected{outline:2px solid var(--accent);outline-offset:2px;}
   .history-wd{font-size:10.5px;color:var(--ink-soft);}
+  .history-wd.is-today{color:var(--accent);font-weight:800;}
 
   .list-card{
     background:var(--surface);border-radius:20px;padding:6px 6px 14px;box-shadow:var(--shadow);
@@ -141,6 +161,8 @@
     -webkit-tap-highlight-color:transparent;
   }
   .item-row:active{background:var(--surface-2);}
+  .item-row.locked{cursor:default;}
+  .item-row.locked:active{background:transparent;}
   .checkbox{
     width:26px;height:26px;border-radius:50%;flex:none;
     border:2px solid var(--line);
@@ -197,6 +219,19 @@
   .add-btn:disabled{opacity:.4;}
 
   .empty-note{padding:18px 14px;color:var(--ink-soft);font-size:13.5px;line-height:1.6;}
+
+  .lock-row{padding:10px 14px 4px;}
+  .lock-btn{
+    width:100%;border:none;background:var(--accent);color:var(--accent-ink);
+    font-weight:700;font-size:13.5px;padding:11px;border-radius:12px;cursor:pointer;font-family:inherit;
+  }
+  .lock-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .lock-banner-label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--good);font-weight:700;}
+  .lock-banner-label svg{width:14px;height:14px;fill:none;stroke:var(--good);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;flex:none;}
+  .unlock-btn{
+    border:none;background:var(--surface-2);color:var(--ink-soft);
+    font-weight:700;font-size:12px;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit;flex:none;
+  }
 
   .motivation-card{
     background:linear-gradient(155deg, var(--accent) 0%, var(--accent-strong) 100%);
@@ -275,6 +310,7 @@
 
   var state = loadState();
   var editMode = false;
+  var viewDate = new Date();
   var backupStatus = { text: '', kind: '' };
   var backupStatusTimer = null;
 
@@ -282,8 +318,26 @@
   function dateKey(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
   var WD = ['日','月','火','水','木','金','土'];
   function fmtDateJP(d){ return (d.getMonth()+1)+'月'+d.getDate()+'日（'+WD[d.getDay()]+'）'; }
+  function isViewingToday(){ return dateKey(viewDate) === dateKey(new Date()); }
 
-  function checkedFor(key){ return state.logs[key] || []; }
+  function getLog(key){
+    var l = state.logs[key];
+    if(!l) return { checked: [], locked: false };
+    if(Array.isArray(l)) return { checked: l, locked: false };
+    return { checked: l.checked || [], locked: !!l.locked };
+  }
+  function checkedFor(key){ return getLog(key).checked; }
+  function isLocked(key){ return getLog(key).locked; }
+  function setChecked(key, arr){
+    var log = getLog(key);
+    log.checked = arr;
+    state.logs[key] = log;
+  }
+  function setLocked(key, val){
+    var log = getLog(key);
+    log.locked = val;
+    state.logs[key] = log;
+  }
   function rateFor(key){
     var total = state.items.length;
     if(total === 0) return 0;
@@ -304,10 +358,10 @@
   }
 
   var MESSAGES = {
-    zero: ['さあ、はじめよう。最初の1つが一番大事。','今日はまだこれから。1種目からスタート。'],
+    zero: ['さあ、はじめよう。最初の1つが一番大事。','まだこれから。1種目からスタート。'],
     low: ['いいペース、この調子で。','半分まで来たら勢いに乗れる。'],
     mid: ['あと少しで達成！ラストスパート。','ここまで来たら完走しよう。'],
-    full: ['今日完全達成！お疲れさまでした。','パーフェクト。この調子で明日も。']
+    full: ['完全達成！お疲れさまでした。','パーフェクト。この調子をキープ。']
   };
   function pickMessage(rate, key){
     var bucket = rate >= 1 ? 'full' : rate >= 0.5 ? 'mid' : rate > 0 ? 'low' : 'zero';
@@ -320,6 +374,8 @@
   var ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
   var ICON_FLAME = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 3-3 4-3 8a3 3 0 0 0 6 0c1 1 2 2.5 2 5a5 5 0 0 1-10 0c0-4 2-6 3-8 .3 1 1 1.5 1 2 0-3-1.5-5.5 1-7z"/></svg>';
   var ICON_X = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  var ICON_CHEV_LEFT = '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>';
+  var ICON_CHEV_RIGHT = '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
 
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, function(c){
@@ -328,14 +384,15 @@
   }
 
   function ringSection(){
-    var today = dateKey(new Date());
-    var rate = rateFor(today);
+    var key = dateKey(viewDate);
+    var rate = rateFor(key);
     var total = state.items.length;
-    var doneCount = checkedFor(today).length;
+    var doneCount = checkedFor(key).length;
     var C = 2*Math.PI*52;
     var dash = Math.max(0, Math.min(1, rate)) * C;
     var streak = computeStreak();
     var pct = Math.round(rate*100);
+    var label = isViewingToday() ? '今日' : fmtDateJP(viewDate).replace(/（.）/,'');
     return (
       '<div class="ring-card">' +
         '<div class="ring-wrap">' +
@@ -350,7 +407,7 @@
           '</div>' +
         '</div>' +
         '<div class="ring-side">' +
-          '<div class="frac">今日 <b>' + doneCount + ' / ' + total + '</b> 種目 完了</div>' +
+          '<div class="frac">' + label + ' <b>' + doneCount + ' / ' + total + '</b> 種目 完了</div>' +
           '<div class="streak-pill' + (streak===0?' zero':'') + '">' + (streak>0?ICON_FLAME:'') +
             (streak>0 ? streak + '日連続達成' : '連続0日・今日からスタート') +
           '</div>' +
@@ -362,6 +419,7 @@
   function historySection(){
     var today = new Date();
     var todayKey = dateKey(today);
+    var viewKey = dateKey(viewDate);
     var days = [];
     for(var i=6;i>=0;i--){
       var d = new Date(today);
@@ -371,7 +429,8 @@
     var cells = days.map(function(d){
       var key = dateKey(d);
       var r = rateFor(key);
-      var isToday = key === todayKey;
+      var isRealToday = key === todayKey;
+      var isSelected = key === viewKey;
       var bg;
       if(r>=1) bg = 'var(--good)';
       else if(r>0.5) bg = 'var(--accent)';
@@ -379,8 +438,8 @@
       else bg = 'var(--ring-track)';
       return (
         '<div class="history-day">' +
-          '<div class="history-sq' + (isToday?' today':'') + '" style="background:' + bg + '" title="' + (d.getMonth()+1) + '/' + d.getDate() + '"></div>' +
-          '<div class="history-wd">' + WD[d.getDay()] + '</div>' +
+          '<div class="history-sq' + (isSelected?' selected':'') + '" data-jump-date="' + key + '" style="background:' + bg + '" title="' + (d.getMonth()+1) + '/' + d.getDate() + '"></div>' +
+          '<div class="history-wd' + (isRealToday?' is-today':'') + '">' + WD[d.getDay()] + '</div>' +
         '</div>'
       );
     }).join('');
@@ -393,10 +452,12 @@
   }
 
   function listSection(){
-    var today = dateKey(new Date());
-    var checked = checkedFor(today);
+    var key = dateKey(viewDate);
+    var checked = checkedFor(key);
+    var locked = isLocked(key);
+    var hasItems = state.items.length > 0;
     var rows;
-    if(state.items.length === 0){
+    if(!hasItems){
       rows = '<div class="empty-note">まだ種目がありません。下の「編集」から追加しましょう。</div>';
     } else if(editMode){
       rows = state.items.map(function(item){
@@ -414,7 +475,7 @@
       rows = state.items.map(function(item){
         var on = checked.indexOf(item.id) !== -1;
         return (
-          '<div class="item-row" data-toggle="' + item.id + '">' +
+          '<div class="item-row' + (locked?' locked':'') + '"' + (locked?'':' data-toggle="' + item.id + '"') + '>' +
             '<div class="checkbox' + (on?' on':'') + '">' + ICON_CHECK + '</div>' +
             '<div class="item-text">' +
               '<div class="item-name' + (on?' done':'') + '">' + escapeHtml(item.name) + '</div>' +
@@ -433,22 +494,33 @@
         '</div>' +
       '</div>'
     ) : '';
+    var lockRow = (!editMode && hasItems) ? (
+      locked ? (
+        '<div class="lock-row lock-banner">' +
+          '<div class="lock-banner-label">' + ICON_CHECK + '完了として記録済み</div>' +
+          '<button class="unlock-btn" id="unlock-btn">編集し直す</button>' +
+        '</div>'
+      ) : (
+        '<div class="lock-row"><button class="lock-btn" id="lock-btn">この日を完了にする</button></div>'
+      )
+    ) : '';
     return (
       '<div class="list-card">' +
         '<div class="list-head">' +
-          '<div class="list-title">今日のメニュー</div>' +
-          '<button class="edit-toggle' + (editMode?' on':'') + '" id="edit-toggle-btn">' + (editMode?'完了':'編集') + '</button>' +
+          '<div class="list-title">' + (isViewingToday() ? '今日のメニュー' : 'この日のメニュー') + '</div>' +
+          '<button class="edit-toggle' + (editMode?' on':'') + '" id="edit-toggle-btn">' + (editMode?'閉じる':'編集') + '</button>' +
         '</div>' +
         rows +
         addRow +
+        lockRow +
       '</div>'
     );
   }
 
   function motivationSection(){
-    var today = dateKey(new Date());
-    var rate = rateFor(today);
-    var m = pickMessage(rate, today);
+    var key = dateKey(viewDate);
+    var rate = rateFor(key);
+    var m = pickMessage(rate, key);
     return (
       '<div class="motivation-card' + (m.complete?' complete':'') + '">' +
         '<div class="motivation-eyebrow">Today\'s Message</div>' +
@@ -473,14 +545,21 @@
   }
 
   function appInnerHtml(){
-    var today = new Date();
+    var isToday = isViewingToday();
     return (
-      '<div class="eyebrow">今日のトレーニング</div>' +
-      '<div class="date-heading">' + fmtDateJP(today) + '</div>' +
+      '<div class="eyebrow">' + (isToday ? '今日のトレーニング' : '過去の記録を編集中') + '</div>' +
+      '<div class="date-row">' +
+        '<div class="date-heading">' + fmtDateJP(viewDate) + '</div>' +
+        '<div class="date-nav">' +
+          (!isToday ? '<button class="today-btn" id="today-btn">今日に戻る</button>' : '') +
+          '<button class="nav-btn" id="prev-day-btn" aria-label="前の日">' + ICON_CHEV_LEFT + '</button>' +
+          '<button class="nav-btn" id="next-day-btn" aria-label="次の日"' + (isToday?' disabled':'') + '>' + ICON_CHEV_RIGHT + '</button>' +
+        '</div>' +
+      '</div>' +
       ringSection() +
+      motivationSection() +
       historySection() +
       listSection() +
-      motivationSection() +
       backupSection()
     );
   }
@@ -496,17 +575,49 @@
   }
 
   function toggleItem(id){
-    var key = dateKey(new Date());
+    var key = dateKey(viewDate);
+    if(isLocked(key)) return;
     var arr = checkedFor(key).slice();
     var i = arr.indexOf(id);
     if(i === -1) arr.push(id); else arr.splice(i,1);
-    state.logs[key] = arr;
+    setChecked(key, arr);
+    persist();
+  }
+
+  function lockDay(){
+    setLocked(dateKey(viewDate), true);
+    persist();
+  }
+
+  function unlockDay(){
+    setLocked(dateKey(viewDate), false);
     persist();
   }
 
   function deleteItem(id){
     state.items = state.items.filter(function(it){ return it.id !== id; });
     persist();
+  }
+
+  function jumpToDate(key){
+    var parts = key.split('-').map(Number);
+    var d = new Date(parts[0], parts[1]-1, parts[2]);
+    if(dateKey(d) > dateKey(new Date())) return;
+    viewDate = d;
+    paint();
+  }
+
+  function shiftDay(delta){
+    var d = new Date(viewDate);
+    d.setDate(d.getDate()+delta);
+    if(dateKey(d) > dateKey(new Date())) return;
+    viewDate = d;
+    paint();
+  }
+
+  function goToday(){
+    viewDate = new Date();
+    paint();
   }
 
   function updateItem(id, patch){
@@ -608,6 +719,19 @@
     app.querySelectorAll('[data-rename-target]').forEach(function(el){
       el.addEventListener('change', function(){ updateItem(el.getAttribute('data-rename-target'), {target: el.value}); });
     });
+    app.querySelectorAll('[data-jump-date]').forEach(function(el){
+      el.addEventListener('click', function(){ jumpToDate(el.getAttribute('data-jump-date')); });
+    });
+    var prevBtn = document.getElementById('prev-day-btn');
+    if(prevBtn) prevBtn.addEventListener('click', function(){ shiftDay(-1); });
+    var nextBtn = document.getElementById('next-day-btn');
+    if(nextBtn) nextBtn.addEventListener('click', function(){ shiftDay(1); });
+    var todayBtn = document.getElementById('today-btn');
+    if(todayBtn) todayBtn.addEventListener('click', goToday);
+    var lockBtn = document.getElementById('lock-btn');
+    if(lockBtn) lockBtn.addEventListener('click', lockDay);
+    var unlockBtn = document.getElementById('unlock-btn');
+    if(unlockBtn) unlockBtn.addEventListener('click', unlockDay);
     var editBtn = document.getElementById('edit-toggle-btn');
     if(editBtn){
       editBtn.addEventListener('click', function(){ editMode = !editMode; paint(); });
