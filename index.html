@@ -65,6 +65,13 @@
     color:var(--ink-soft);
     font-weight:700;
   }
+  .top-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .settings-btn{
+    width:32px;height:32px;border-radius:50%;border:none;flex:none;
+    background:var(--surface);box-shadow:var(--shadow);color:var(--ink-soft);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .settings-btn svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .date-row{
     display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:2px;
   }
@@ -93,12 +100,13 @@
     padding:22px;
     box-shadow:var(--shadow);
     display:flex;
-    align-items:center;
-    gap:20px;
+    flex-direction:column;
+    gap:18px;
     position:sticky;
     top:env(safe-area-inset-top, 0px);
     z-index:5;
   }
+  .ring-top{display:flex;align-items:center;gap:20px;}
   .ring-wrap{position:relative;width:132px;height:132px;flex:none;}
   .ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg);}
   .ring-track{fill:none;stroke:var(--ring-track);stroke-width:11;}
@@ -128,15 +136,18 @@
   }
   .history-title{font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:10px;}
   .history-row{display:flex;justify-content:space-between;gap:6px;}
-  .history-day{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;}
+  .history-day{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;}
   .history-sq{
     width:100%;aspect-ratio:1;max-width:34px;border-radius:8px;
     background:var(--ring-track);
   }
   .history-sq{cursor:pointer;}
   .history-sq.selected{outline:2px solid var(--accent);outline-offset:2px;}
-  .history-wd{font-size:10.5px;color:var(--ink-soft);}
+  .history-labels{display:flex;flex-direction:column;align-items:center;gap:1px;}
+  .history-wd{font-size:10.5px;color:var(--ink-soft);line-height:1.2;}
   .history-wd.is-today{color:var(--accent);font-weight:800;}
+  .history-date{font-size:10px;color:var(--ink-soft);line-height:1.2;font-variant-numeric:tabular-nums;}
+  .history-date.is-today{color:var(--accent);font-weight:800;}
 
   .list-card{
     background:var(--surface);border-radius:20px;padding:6px 6px 14px;box-shadow:var(--shadow);
@@ -233,19 +244,38 @@
     font-weight:700;font-size:12px;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit;flex:none;
   }
 
-  .motivation-card{
+  .ring-message{
     background:linear-gradient(155deg, var(--accent) 0%, var(--accent-strong) 100%);
     color:var(--accent-ink);
-    border-radius:20px;padding:18px 20px;box-shadow:var(--shadow);
+    border-radius:16px;padding:14px 16px;
   }
-  .motivation-card.complete{
+  .ring-message.complete{
     background:linear-gradient(155deg, var(--good) 0%, #1F5E46 100%);
   }
-  .motivation-eyebrow{font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.8;font-weight:700;}
-  .motivation-text{font-size:16px;font-weight:700;margin-top:6px;line-height:1.5;text-wrap:balance;}
+  .ring-message-eyebrow{font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.8;font-weight:700;}
+  .ring-message-text{font-size:15px;font-weight:700;margin-top:6px;line-height:1.5;text-wrap:balance;}
+
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(20,24,20,0.45);
+    display:flex;align-items:flex-end;justify-content:center;z-index:50;
+    padding:0 16px;
+  }
+  .modal-sheet{
+    width:100%;max-width:440px;background:var(--surface);
+    border-radius:20px 20px 0 0;padding:20px;
+    padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px));
+    box-shadow:0 -8px 30px rgba(0,0,0,0.2);
+  }
+  .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .modal-title{font-size:16px;font-weight:700;}
+  .modal-close{
+    width:30px;height:30px;border-radius:50%;border:none;flex:none;
+    background:var(--surface-2);color:var(--ink-soft);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .modal-close svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;}
 
   .backup-card{
-    background:var(--surface);border-radius:20px;padding:16px 18px;box-shadow:var(--shadow);
     display:flex;flex-direction:column;gap:10px;
   }
   .backup-title{font-size:12.5px;font-weight:700;color:var(--ink-soft);}
@@ -311,6 +341,7 @@
   var state = loadState();
   var editMode = false;
   var viewDate = new Date();
+  var settingsOpen = false;
   var backupStatus = { text: '', kind: '' };
   var backupStatusTimer = null;
 
@@ -376,6 +407,8 @@
   var ICON_X = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   var ICON_CHEV_LEFT = '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>';
   var ICON_CHEV_RIGHT = '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
+  var ICON_GEAR = '<svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 13.5a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V19.6a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.96 18a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.04H2.9a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 6.96a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 2.6a1.7 1.7 0 0 0 1.04-1.56V.9a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 2.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87c.27.63.86 1.04 1.56 1.04h.09a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.04z"/></svg>';
+  var ICON_CLOSE = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, function(c){
@@ -393,24 +426,31 @@
     var streak = computeStreak();
     var pct = Math.round(rate*100);
     var label = isViewingToday() ? '今日' : fmtDateJP(viewDate).replace(/（.）/,'');
+    var m = pickMessage(rate, key);
     return (
       '<div class="ring-card">' +
-        '<div class="ring-wrap">' +
-          '<svg viewBox="0 0 120 120">' +
-            '<circle class="ring-track" cx="60" cy="60" r="52"></circle>' +
-            '<circle class="ring-fill' + (rate>=1?' complete':'') + '" cx="60" cy="60" r="52" ' +
-              'stroke-dasharray="' + dash.toFixed(1) + ' ' + C.toFixed(1) + '"></circle>' +
-          '</svg>' +
-          '<div class="ring-center">' +
-            '<div class="ring-pct stat-num">' + pct + '<sup>%</sup></div>' +
-            '<div class="ring-label">達成率</div>' +
+        '<div class="ring-top">' +
+          '<div class="ring-wrap">' +
+            '<svg viewBox="0 0 120 120">' +
+              '<circle class="ring-track" cx="60" cy="60" r="52"></circle>' +
+              '<circle class="ring-fill' + (rate>=1?' complete':'') + '" cx="60" cy="60" r="52" ' +
+                'stroke-dasharray="' + dash.toFixed(1) + ' ' + C.toFixed(1) + '"></circle>' +
+            '</svg>' +
+            '<div class="ring-center">' +
+              '<div class="ring-pct stat-num">' + pct + '<sup>%</sup></div>' +
+              '<div class="ring-label">達成率</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="ring-side">' +
+            '<div class="frac">' + label + ' <b>' + doneCount + ' / ' + total + '</b> 種目 完了</div>' +
+            '<div class="streak-pill' + (streak===0?' zero':'') + '">' + (streak>0?ICON_FLAME:'') +
+              (streak>0 ? streak + '日連続達成' : '連続0日・今日からスタート') +
+            '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="ring-side">' +
-          '<div class="frac">' + label + ' <b>' + doneCount + ' / ' + total + '</b> 種目 完了</div>' +
-          '<div class="streak-pill' + (streak===0?' zero':'') + '">' + (streak>0?ICON_FLAME:'') +
-            (streak>0 ? streak + '日連続達成' : '連続0日・今日からスタート') +
-          '</div>' +
+        '<div class="ring-message' + (m.complete?' complete':'') + '">' +
+          '<div class="ring-message-eyebrow">Today\'s Message</div>' +
+          '<div class="ring-message-text">' + escapeHtml(m.text) + '</div>' +
         '</div>' +
       '</div>'
     );
@@ -439,7 +479,10 @@
       return (
         '<div class="history-day">' +
           '<div class="history-sq' + (isSelected?' selected':'') + '" data-jump-date="' + key + '" style="background:' + bg + '" title="' + (d.getMonth()+1) + '/' + d.getDate() + '"></div>' +
-          '<div class="history-wd' + (isRealToday?' is-today':'') + '">' + WD[d.getDay()] + '</div>' +
+          '<div class="history-labels">' +
+            '<div class="history-wd' + (isRealToday?' is-today':'') + '">' + WD[d.getDay()] + '</div>' +
+            '<div class="history-date' + (isRealToday?' is-today':'') + '">' + d.getDate() + '</div>' +
+          '</div>' +
         '</div>'
       );
     }).join('');
@@ -517,29 +560,26 @@
     );
   }
 
-  function motivationSection(){
-    var key = dateKey(viewDate);
-    var rate = rateFor(key);
-    var m = pickMessage(rate, key);
-    return (
-      '<div class="motivation-card' + (m.complete?' complete':'') + '">' +
-        '<div class="motivation-eyebrow">Today\'s Message</div>' +
-        '<div class="motivation-text">' + escapeHtml(m.text) + '</div>' +
-      '</div>'
-    );
-  }
-
-  function backupSection(){
+  function settingsModal(){
+    if(!settingsOpen) return '';
     var statusClass = backupStatus.kind === 'ok' ? ' ok' : backupStatus.kind === 'err' ? ' err' : '';
     return (
-      '<div class="backup-card">' +
-        '<div class="backup-title">バックアップ</div>' +
-        '<div class="backup-buttons">' +
-          '<button class="backup-btn primary" id="export-btn">バックアップを保存</button>' +
-          '<button class="backup-btn" id="import-btn">ファイルから復元</button>' +
+      '<div class="modal-backdrop" id="settings-backdrop">' +
+        '<div class="modal-sheet">' +
+          '<div class="modal-head">' +
+            '<div class="modal-title">設定</div>' +
+            '<button class="modal-close" id="settings-close-btn" aria-label="閉じる">' + ICON_CLOSE + '</button>' +
+          '</div>' +
+          '<div class="backup-card">' +
+            '<div class="backup-title">バックアップ</div>' +
+            '<div class="backup-buttons">' +
+              '<button class="backup-btn primary" id="export-btn">バックアップを保存</button>' +
+              '<button class="backup-btn" id="import-btn">ファイルから復元</button>' +
+            '</div>' +
+            '<div class="backup-status' + statusClass + '">' + escapeHtml(backupStatus.text) + '</div>' +
+            '<div class="backup-hint">保存すると記録をJSONファイルとして書き出せます。機種変更の前や、iPhoneの「ブラウザデータを消去」をする前に保存しておくと安心です。</div>' +
+          '</div>' +
         '</div>' +
-        '<div class="backup-status' + statusClass + '">' + escapeHtml(backupStatus.text) + '</div>' +
-        '<div class="backup-hint">保存すると記録をJSONファイルとして書き出せます。機種変更の前や、iPhoneの「ブラウザデータを消去」をする前に保存しておくと安心です。</div>' +
       '</div>'
     );
   }
@@ -547,7 +587,10 @@
   function appInnerHtml(){
     var isToday = isViewingToday();
     return (
-      '<div class="eyebrow">' + (isToday ? '今日のトレーニング' : '過去の記録を編集中') + '</div>' +
+      '<div class="top-row">' +
+        '<div class="eyebrow">' + (isToday ? '今日のトレーニング' : '過去の記録を編集中') + '</div>' +
+        '<button class="settings-btn" id="settings-btn" aria-label="設定">' + ICON_GEAR + '</button>' +
+      '</div>' +
       '<div class="date-row">' +
         '<div class="date-heading">' + fmtDateJP(viewDate) + '</div>' +
         '<div class="date-nav">' +
@@ -557,10 +600,9 @@
         '</div>' +
       '</div>' +
       ringSection() +
-      motivationSection() +
       historySection() +
       listSection() +
-      backupSection()
+      settingsModal()
     );
   }
 
@@ -732,6 +774,16 @@
     if(lockBtn) lockBtn.addEventListener('click', lockDay);
     var unlockBtn = document.getElementById('unlock-btn');
     if(unlockBtn) unlockBtn.addEventListener('click', unlockDay);
+    var settingsBtn = document.getElementById('settings-btn');
+    if(settingsBtn) settingsBtn.addEventListener('click', function(){ settingsOpen = true; paint(); });
+    var settingsCloseBtn = document.getElementById('settings-close-btn');
+    if(settingsCloseBtn) settingsCloseBtn.addEventListener('click', function(){ settingsOpen = false; paint(); });
+    var settingsBackdrop = document.getElementById('settings-backdrop');
+    if(settingsBackdrop){
+      settingsBackdrop.addEventListener('click', function(e){
+        if(e.target === settingsBackdrop){ settingsOpen = false; paint(); }
+      });
+    }
     var editBtn = document.getElementById('edit-toggle-btn');
     if(editBtn){
       editBtn.addEventListener('click', function(){ editMode = !editMode; paint(); });
