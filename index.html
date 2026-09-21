@@ -18,8 +18,8 @@
 
 <style>
   :root{
-    color-scheme: light dark;
-    --bg:#EDF0EA;
+    color-scheme: light;
+    --bg:#F7FAF1;
     --surface:#FFFFFF;
     --surface-2:#F4F2EC;
     --ink:#1B2621;
@@ -35,38 +35,8 @@
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]){
-      --bg:#131E19;
-      --surface:#1B2822;
-      --surface-2:#213027;
-      --ink:#ECEFE8;
-      --ink-soft:#A6B4AB;
-      --accent:#F17847;
-      --accent-strong:#F5905F;
-      --accent-ink:#191008;
-      --good:#57CB9C;
-      --good-soft:rgba(87,203,156,0.16);
-      --line:rgba(236,239,232,0.12);
-      --ring-track:rgba(236,239,232,0.10);
-      --shadow:0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
-    }
-  }
-  :root[data-theme="dark"]{
-    --bg:#131E19;
-    --surface:#1B2822;
-    --surface-2:#213027;
-    --ink:#ECEFE8;
-    --ink-soft:#A6B4AB;
-    --accent:#F17847;
-    --accent-strong:#F5905F;
-    --accent-ink:#191008;
-    --good:#57CB9C;
-    --good-soft:rgba(87,203,156,0.16);
-    --line:rgba(236,239,232,0.12);
-    --ring-track:rgba(236,239,232,0.10);
-    --shadow:0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
-  }
+  /* This app intentionally uses one bright look at all times, regardless
+     of the device's dark mode setting. */
   *{box-sizing:border-box;}
   html, body{height:100%;}
   body{
@@ -180,12 +150,23 @@
   .checkbox svg{width:14px;height:14px;stroke:var(--accent-ink);opacity:0;transition:opacity .1s ease;}
   .checkbox.on{background:var(--good);border-color:var(--good);}
   .checkbox.on svg{opacity:1;stroke:#fff;}
-  .item-name{font-size:15px;flex:1;min-width:0;overflow-wrap:anywhere;}
+  .item-text{display:flex;align-items:center;flex-wrap:wrap;row-gap:4px;column-gap:8px;flex:1;min-width:0;}
+  .item-name{font-size:15px;overflow-wrap:anywhere;}
   .item-name.done{color:var(--ink-soft);text-decoration:line-through;text-decoration-color:var(--line);}
+  .item-target-chip{
+    font-size:12px;color:var(--ink-soft);background:var(--surface-2);
+    padding:2px 9px;border-radius:999px;flex:none;font-variant-numeric:tabular-nums;
+  }
+  .item-target-chip.done{opacity:.6;}
 
   .item-row.edit-row{cursor:default;}
   .item-row.edit-row:active{background:transparent;}
+  .edit-row-fields{display:flex;gap:8px;flex:1;min-width:0;}
   .item-input{
+    flex:1.4;min-width:0;border:1px solid var(--line);background:var(--surface-2);
+    color:var(--ink);border-radius:10px;padding:9px 11px;font-size:15px;font-family:inherit;
+  }
+  .item-input-target{
     flex:1;min-width:0;border:1px solid var(--line);background:var(--surface-2);
     color:var(--ink);border-radius:10px;padding:9px 11px;font-size:15px;font-family:inherit;
   }
@@ -197,16 +178,21 @@
   .del-btn svg{width:14px;height:14px;stroke:currentColor;}
 
   .add-row{
-    display:flex;gap:8px;padding:12px 14px 4px;
+    display:flex;flex-direction:column;gap:8px;padding:12px 14px 4px;
   }
+  .add-row-fields{display:flex;gap:8px;}
   .add-input{
+    width:100%;min-width:0;border:1px solid var(--line);background:var(--surface-2);
+    color:var(--ink);border-radius:10px;padding:10px 12px;font-size:15px;font-family:inherit;
+  }
+  .add-input-target{
     flex:1;min-width:0;border:1px solid var(--line);background:var(--surface-2);
     color:var(--ink);border-radius:10px;padding:10px 12px;font-size:15px;font-family:inherit;
   }
-  .add-input::placeholder{color:var(--ink-soft);}
+  .add-input::placeholder, .add-input-target::placeholder{color:var(--ink-soft);}
   .add-btn{
     border:none;background:var(--accent);color:var(--accent-ink);
-    font-weight:700;font-size:14px;padding:0 16px;border-radius:10px;cursor:pointer;font-family:inherit;
+    font-weight:700;font-size:14px;padding:0 16px;border-radius:10px;cursor:pointer;font-family:inherit;flex:none;
   }
   .add-btn:disabled{opacity:.4;}
 
@@ -257,10 +243,10 @@
 
   var DEFAULT_STATE = {
     items: [
-      {id:'i1', name:'腕立て伏せ 20回'},
-      {id:'i2', name:'スクワット 20回'},
-      {id:'i3', name:'腹筋 20回'},
-      {id:'i4', name:'プランク 1分'}
+      {id:'i1', name:'腕立て伏せ', target:'20回'},
+      {id:'i2', name:'スクワット', target:'20回'},
+      {id:'i3', name:'腹筋', target:'20回'},
+      {id:'i4', name:'プランク', target:'1分'}
     ],
     logs: {}
   };
@@ -416,7 +402,10 @@
       rows = state.items.map(function(item){
         return (
           '<div class="item-row edit-row">' +
-            '<input class="item-input" value="' + escapeHtml(item.name) + '" data-rename="' + item.id + '">' +
+            '<div class="edit-row-fields">' +
+              '<input class="item-input" value="' + escapeHtml(item.name) + '" data-rename="' + item.id + '" placeholder="種目名">' +
+              '<input class="item-input-target" value="' + escapeHtml(item.target||'') + '" data-rename-target="' + item.id + '" placeholder="回数・時間">' +
+            '</div>' +
             '<button class="del-btn" data-del="' + item.id + '" aria-label="削除">' + ICON_X + '</button>' +
           '</div>'
         );
@@ -427,15 +416,21 @@
         return (
           '<div class="item-row" data-toggle="' + item.id + '">' +
             '<div class="checkbox' + (on?' on':'') + '">' + ICON_CHECK + '</div>' +
-            '<div class="item-name' + (on?' done':'') + '">' + escapeHtml(item.name) + '</div>' +
+            '<div class="item-text">' +
+              '<div class="item-name' + (on?' done':'') + '">' + escapeHtml(item.name) + '</div>' +
+              (item.target ? '<div class="item-target-chip' + (on?' done':'') + '">' + escapeHtml(item.target) + '</div>' : '') +
+            '</div>' +
           '</div>'
         );
       }).join('');
     }
     var addRow = editMode ? (
       '<div class="add-row">' +
-        '<input class="add-input" id="new-item-input" placeholder="新しい種目を入力（例：ランジ 15回）" maxlength="40">' +
-        '<button class="add-btn" id="add-item-btn">追加</button>' +
+        '<input class="add-input" id="new-item-input" placeholder="種目名（例：ランジ）" maxlength="30">' +
+        '<div class="add-row-fields">' +
+          '<input class="add-input-target" id="new-item-target-input" placeholder="回数・時間（例：15回）" maxlength="20">' +
+          '<button class="add-btn" id="add-item-btn">追加</button>' +
+        '</div>' +
       '</div>'
     ) : '';
     return (
@@ -514,15 +509,23 @@
     persist();
   }
 
-  function renameItem(id, name){
+  function updateItem(id, patch){
     var it = state.items.filter(function(x){ return x.id === id; })[0];
-    if(it && name.trim()){ it.name = name.trim(); persist(); }
+    if(!it) return;
+    if(patch.name !== undefined){
+      var n = patch.name.trim();
+      if(n) it.name = n;
+    }
+    if(patch.target !== undefined){
+      it.target = patch.target.trim();
+    }
+    persist();
   }
 
-  function addItem(name){
+  function addItem(name, target){
     name = name.trim();
     if(!name) return;
-    state.items.push({ id: 'i' + Date.now() + Math.floor(Math.random()*1000), name: name });
+    state.items.push({ id: 'i' + Date.now() + Math.floor(Math.random()*1000), name: name, target: (target||'').trim() });
     persist();
   }
 
@@ -600,7 +603,10 @@
       el.addEventListener('click', function(){ deleteItem(el.getAttribute('data-del')); });
     });
     app.querySelectorAll('[data-rename]').forEach(function(el){
-      el.addEventListener('change', function(){ renameItem(el.getAttribute('data-rename'), el.value); });
+      el.addEventListener('change', function(){ updateItem(el.getAttribute('data-rename'), {name: el.value}); });
+    });
+    app.querySelectorAll('[data-rename-target]').forEach(function(el){
+      el.addEventListener('change', function(){ updateItem(el.getAttribute('data-rename-target'), {target: el.value}); });
     });
     var editBtn = document.getElementById('edit-toggle-btn');
     if(editBtn){
@@ -608,11 +614,18 @@
     }
     var addBtn = document.getElementById('add-item-btn');
     var addInput = document.getElementById('new-item-input');
+    var addTargetInput = document.getElementById('new-item-target-input');
+    function submitAdd(){
+      addItem(addInput.value, addTargetInput ? addTargetInput.value : '');
+      addInput.value='';
+      if(addTargetInput) addTargetInput.value='';
+    }
     if(addBtn && addInput){
-      addBtn.addEventListener('click', function(){ addItem(addInput.value); addInput.value=''; });
-      addInput.addEventListener('keydown', function(e){
-        if(e.key === 'Enter'){ addItem(addInput.value); addInput.value=''; }
-      });
+      addBtn.addEventListener('click', submitAdd);
+      addInput.addEventListener('keydown', function(e){ if(e.key === 'Enter') submitAdd(); });
+      if(addTargetInput){
+        addTargetInput.addEventListener('keydown', function(e){ if(e.key === 'Enter') submitAdd(); });
+      }
     }
     var exportBtn = document.getElementById('export-btn');
     if(exportBtn) exportBtn.addEventListener('click', exportBackup);
