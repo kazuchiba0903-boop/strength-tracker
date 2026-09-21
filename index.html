@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>筋トレ習慣トラッカー</title>
+<meta name="description" content="毎日の筋トレ項目をチェックして達成率と連続記録を管理するアプリ">
+
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="筋トレ">
+<meta name="theme-color" content="#E1592C">
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Big+Shoulders+Display:wght@700;800&display=swap">
+
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg:#EDF0EA;
+    --surface:#FFFFFF;
+    --surface-2:#F4F2EC;
+    --ink:#1B2621;
+    --ink-soft:#57645C;
+    --accent:#E1592C;
+    --accent-strong:#C64A22;
+    --accent-ink:#FFF8F4;
+    --good:#2F7A5E;
+    --good-soft:#DCEEE5;
+    --line:rgba(27,38,33,0.12);
+    --ring-track:rgba(27,38,33,0.08);
+    --shadow:0 1px 2px rgba(27,38,33,0.06), 0 8px 24px -12px rgba(27,38,33,0.18);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#131E19;
+      --surface:#1B2822;
+      --surface-2:#213027;
+      --ink:#ECEFE8;
+      --ink-soft:#A6B4AB;
+      --accent:#F17847;
+      --accent-strong:#F5905F;
+      --accent-ink:#191008;
+      --good:#57CB9C;
+      --good-soft:rgba(87,203,156,0.16);
+      --line:rgba(236,239,232,0.12);
+      --ring-track:rgba(236,239,232,0.10);
+      --shadow:0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#131E19;
+    --surface:#1B2822;
+    --surface-2:#213027;
+    --ink:#ECEFE8;
+    --ink-soft:#A6B4AB;
+    --accent:#F17847;
+    --accent-strong:#F5905F;
+    --accent-ink:#191008;
+    --good:#57CB9C;
+    --good-soft:rgba(87,203,156,0.16);
+    --line:rgba(236,239,232,0.12);
+    --ring-track:rgba(236,239,232,0.10);
+    --shadow:0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+  *{box-sizing:border-box;}
+  html, body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Zen Kaku Gothic New','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+    padding-inline:16px;
+    padding-block:20px 32px;
+    display:flex;
+    justify-content:center;
+  }
+  img{max-width:100%;}
+  [hidden]{display:none!important;}
+  .stat-num{
+    font-family:'Big Shoulders Display','Arial Narrow',sans-serif;
+    font-variant-numeric:tabular-nums;
+    font-weight:700;
+  }
+  #app{width:100%;max-width:440px;display:flex;flex-direction:column;gap:16px;}
+
+  .eyebrow{
+    font-size:11.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    font-weight:700;
+  }
+  .date-heading{
+    font-size:24px;
+    font-weight:700;
+    margin-top:2px;
+    text-wrap:balance;
+  }
+
+  .ring-card{
+    background:var(--surface);
+    border-radius:24px;
+    padding:22px;
+    box-shadow:var(--shadow);
+    display:flex;
+    align-items:center;
+    gap:20px;
+  }
+  .ring-wrap{position:relative;width:132px;height:132px;flex:none;}
+  .ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg);}
+  .ring-track{fill:none;stroke:var(--ring-track);stroke-width:11;}
+  .ring-fill{fill:none;stroke:var(--accent);stroke-width:11;stroke-linecap:round;transition:stroke-dasharray .5s ease, stroke .3s ease;}
+  .ring-fill.complete{stroke:var(--good);}
+  .ring-center{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .ring-pct{font-size:30px;line-height:1;color:var(--ink);}
+  .ring-pct sup{font-size:15px;margin-left:1px;}
+  .ring-label{font-size:11px;color:var(--ink-soft);margin-top:4px;letter-spacing:.06em;}
+
+  .ring-side{display:flex;flex-direction:column;gap:12px;flex:1;min-width:0;}
+  .frac{font-size:14px;color:var(--ink-soft);}
+  .frac b{color:var(--ink);font-weight:700;}
+  .streak-pill{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--good-soft);color:var(--good);
+    padding:6px 12px;border-radius:999px;
+    font-size:13px;font-weight:700;width:fit-content;
+  }
+  .streak-pill svg{width:15px;height:15px;flex:none;}
+  .streak-pill.zero{background:var(--surface-2);color:var(--ink-soft);}
+
+  .history-card{
+    background:var(--surface);border-radius:20px;padding:16px 18px;box-shadow:var(--shadow);
+  }
+  .history-title{font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:10px;}
+  .history-row{display:flex;justify-content:space-between;gap:6px;}
+  .history-day{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;}
+  .history-sq{
+    width:100%;aspect-ratio:1;max-width:34px;border-radius:8px;
+    background:var(--ring-track);
+  }
+  .history-sq.today{outline:2px solid var(--accent);outline-offset:2px;}
+  .history-wd{font-size:10.5px;color:var(--ink-soft);}
+
+  .list-card{
+    background:var(--surface);border-radius:20px;padding:6px 6px 14px;box-shadow:var(--shadow);
+  }
+  .list-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 14px 8px;
+  }
+  .list-title{font-size:15px;font-weight:700;}
+  .edit-toggle{
+    border:none;background:var(--surface-2);color:var(--ink-soft);
+    font-size:12.5px;font-weight:700;padding:6px 12px;border-radius:999px;cursor:pointer;
+    font-family:inherit;
+  }
+  .edit-toggle.on{background:var(--accent);color:var(--accent-ink);}
+
+  .item-row{
+    display:flex;align-items:center;gap:12px;
+    padding:12px 14px;
+    border-top:1px solid var(--line);
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .item-row:active{background:var(--surface-2);}
+  .checkbox{
+    width:26px;height:26px;border-radius:50%;flex:none;
+    border:2px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .checkbox svg{width:14px;height:14px;stroke:var(--accent-ink);opacity:0;transition:opacity .1s ease;}
+  .checkbox.on{background:var(--good);border-color:var(--good);}
+  .checkbox.on svg{opacity:1;stroke:#fff;}
+  .item-name{font-size:15px;flex:1;min-width:0;overflow-wrap:anywhere;}
+  .item-name.done{color:var(--ink-soft);text-decoration:line-through;text-decoration-color:var(--line);}
+
+  .item-row.edit-row{cursor:default;}
+  .item-row.edit-row:active{background:transparent;}
+  .item-input{
+    flex:1;min-width:0;border:1px solid var(--line);background:var(--surface-2);
+    color:var(--ink);border-radius:10px;padding:9px 11px;font-size:15px;font-family:inherit;
+  }
+  .del-btn{
+    width:30px;height:30px;border-radius:50%;flex:none;border:none;
+    background:var(--surface-2);color:var(--ink-soft);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .del-btn svg{width:14px;height:14px;stroke:currentColor;}
+
+  .add-row{
+    display:flex;gap:8px;padding:12px 14px 4px;
+  }
+  .add-input{
+    flex:1;min-width:0;border:1px solid var(--line);background:var(--surface-2);
+    color:var(--ink);border-radius:10px;padding:10px 12px;font-size:15px;font-family:inherit;
+  }
+  .add-input::placeholder{color:var(--ink-soft);}
+  .add-btn{
+    border:none;background:var(--accent);color:var(--accent-ink);
+    font-weight:700;font-size:14px;padding:0 16px;border-radius:10px;cursor:pointer;font-family:inherit;
+  }
+  .add-btn:disabled{opacity:.4;}
+
+  .empty-note{padding:18px 14px;color:var(--ink-soft);font-size:13.5px;line-height:1.6;}
+
+  .motivation-card{
+    background:linear-gradient(155deg, var(--accent) 0%, var(--accent-strong) 100%);
+    color:var(--accent-ink);
+    border-radius:20px;padding:18px 20px;box-shadow:var(--shadow);
+  }
+  .motivation-card.complete{
+    background:linear-gradient(155deg, var(--good) 0%, #1F5E46 100%);
+  }
+  .motivation-eyebrow{font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.8;font-weight:700;}
+  .motivation-text{font-size:16px;font-weight:700;margin-top:6px;line-height:1.5;text-wrap:balance;}
+
+  .backup-card{
+    background:var(--surface);border-radius:20px;padding:16px 18px;box-shadow:var(--shadow);
+    display:flex;flex-direction:column;gap:10px;
+  }
+  .backup-title{font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  .backup-buttons{display:flex;gap:10px;}
+  .backup-btn{
+    flex:1;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);
+    font-weight:700;font-size:13.5px;padding:10px 8px;border-radius:12px;cursor:pointer;font-family:inherit;
+  }
+  .backup-btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;}
+  .backup-status{font-size:12.5px;color:var(--ink-soft);min-height:1.2em;}
+  .backup-status.ok{color:var(--good);}
+  .backup-status.err{color:var(--accent-strong);}
+  .backup-hint{font-size:11.5px;color:var(--ink-soft);line-height:1.6;}
+
+  @media (prefers-reduced-motion: reduce){
+    .ring-fill{transition:none;}
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+<input type="file" id="restore-input" accept="application/json,.json" hidden>
+
+<script>
+(function(){
+  "use strict";
+
+  var STORAGE_KEY = 'strength-tracker-state-v1';
+
+  var DEFAULT_STATE = {
+    items: [
+      {id:'i1', name:'腕立て伏せ 20回'},
+      {id:'i2', name:'スクワット 20回'},
+      {id:'i3', name:'腹筋 20回'},
+      {id:'i4', name:'プランク 1分'}
+    ],
+    logs: {}
+  };
+
+  function loadState(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return JSON.parse(JSON.stringify(DEFAULT_STATE));
+      var parsed = JSON.parse(raw);
+      if(!parsed || !Array.isArray(parsed.items) || typeof parsed.logs !== 'object'){
+        return JSON.parse(JSON.stringify(DEFAULT_STATE));
+      }
+      return parsed;
+    }catch(e){
+      return JSON.parse(JSON.stringify(DEFAULT_STATE));
+    }
+  }
+
+  function saveState(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }catch(e){
+      /* storage unavailable (private mode, quota) — app still works this session */
+    }
+  }
+
+  var state = loadState();
+  var editMode = false;
+  var backupStatus = { text: '', kind: '' };
+  var backupStatusTimer = null;
+
+  function pad(n){ return n<10 ? '0'+n : ''+n; }
+  function dateKey(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  var WD = ['日','月','火','水','木','金','土'];
+  function fmtDateJP(d){ return (d.getMonth()+1)+'月'+d.getDate()+'日（'+WD[d.getDay()]+'）'; }
+
+  function checkedFor(key){ return state.logs[key] || []; }
+  function rateFor(key){
+    var total = state.items.length;
+    if(total === 0) return 0;
+    return checkedFor(key).length / total;
+  }
+  function isDayComplete(key){
+    return state.items.length > 0 && checkedFor(key).length >= state.items.length;
+  }
+  function computeStreak(){
+    var streak = 0;
+    var d = new Date();
+    for(var i=0;i<365;i++){
+      var key = dateKey(d);
+      if(isDayComplete(key)){ streak++; d.setDate(d.getDate()-1); }
+      else break;
+    }
+    return streak;
+  }
+
+  var MESSAGES = {
+    zero: ['さあ、はじめよう。最初の1つが一番大事。','今日はまだこれから。1種目からスタート。'],
+    low: ['いいペース、この調子で。','半分まで来たら勢いに乗れる。'],
+    mid: ['あと少しで達成！ラストスパート。','ここまで来たら完走しよう。'],
+    full: ['今日完全達成！お疲れさまでした。','パーフェクト。この調子で明日も。']
+  };
+  function pickMessage(rate, key){
+    var bucket = rate >= 1 ? 'full' : rate >= 0.5 ? 'mid' : rate > 0 ? 'low' : 'zero';
+    var arr = MESSAGES[bucket];
+    var idx = 0;
+    for(var i=0;i<key.length;i++){ idx += key.charCodeAt(i); }
+    return { text: arr[idx % arr.length], complete: rate >= 1 };
+  }
+
+  var ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
+  var ICON_FLAME = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 3-3 4-3 8a3 3 0 0 0 6 0c1 1 2 2.5 2 5a5 5 0 0 1-10 0c0-4 2-6 3-8 .3 1 1 1.5 1 2 0-3-1.5-5.5 1-7z"/></svg>';
+  var ICON_X = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function ringSection(){
+    var today = dateKey(new Date());
+    var rate = rateFor(today);
+    var total = state.items.length;
+    var doneCount = checkedFor(today).length;
+    var C = 2*Math.PI*52;
+    var dash = Math.max(0, Math.min(1, rate)) * C;
+    var streak = computeStreak();
+    var pct = Math.round(rate*100);
+    return (
+      '<div class="ring-card">' +
+        '<div class="ring-wrap">' +
+          '<svg viewBox="0 0 120 120">' +
+            '<circle class="ring-track" cx="60" cy="60" r="52"></circle>' +
+            '<circle class="ring-fill' + (rate>=1?' complete':'') + '" cx="60" cy="60" r="52" ' +
+              'stroke-dasharray="' + dash.toFixed(1) + ' ' + C.toFixed(1) + '"></circle>' +
+          '</svg>' +
+          '<div class="ring-center">' +
+            '<div class="ring-pct stat-num">' + pct + '<sup>%</sup></div>' +
+            '<div class="ring-label">達成率</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="ring-side">' +
+          '<div class="frac">今日 <b>' + doneCount + ' / ' + total + '</b> 種目 完了</div>' +
+          '<div class="streak-pill' + (streak===0?' zero':'') + '">' + (streak>0?ICON_FLAME:'') +
+            (streak>0 ? streak + '日連続達成' : '連続0日・今日からスタート') +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function historySection(){
+    var today = new Date();
+    var todayKey = dateKey(today);
+    var days = [];
+    for(var i=6;i>=0;i--){
+      var d = new Date(today);
+      d.setDate(d.getDate()-i);
+      days.push(d);
+    }
+    var cells = days.map(function(d){
+      var key = dateKey(d);
+      var r = rateFor(key);
+      var isToday = key === todayKey;
+      var bg;
+      if(r>=1) bg = 'var(--good)';
+      else if(r>0.5) bg = 'var(--accent)';
+      else if(r>0) bg = 'color-mix(in srgb, var(--accent) 45%, var(--ring-track))';
+      else bg = 'var(--ring-track)';
+      return (
+        '<div class="history-day">' +
+          '<div class="history-sq' + (isToday?' today':'') + '" style="background:' + bg + '" title="' + (d.getMonth()+1) + '/' + d.getDate() + '"></div>' +
+          '<div class="history-wd">' + WD[d.getDay()] + '</div>' +
+        '</div>'
+      );
+    }).join('');
+    return (
+      '<div class="history-card">' +
+        '<div class="history-title">直近7日間</div>' +
+        '<div class="history-row">' + cells + '</div>' +
+      '</div>'
+    );
+  }
+
+  function listSection(){
+    var today = dateKey(new Date());
+    var checked = checkedFor(today);
+    var rows;
+    if(state.items.length === 0){
+      rows = '<div class="empty-note">まだ種目がありません。下の「編集」から追加しましょう。</div>';
+    } else if(editMode){
+      rows = state.items.map(function(item){
+        return (
+          '<div class="item-row edit-row">' +
+            '<input class="item-input" value="' + escapeHtml(item.name) + '" data-rename="' + item.id + '">' +
+            '<button class="del-btn" data-del="' + item.id + '" aria-label="削除">' + ICON_X + '</button>' +
+          '</div>'
+        );
+      }).join('');
+    } else {
+      rows = state.items.map(function(item){
+        var on = checked.indexOf(item.id) !== -1;
+        return (
+          '<div class="item-row" data-toggle="' + item.id + '">' +
+            '<div class="checkbox' + (on?' on':'') + '">' + ICON_CHECK + '</div>' +
+            '<div class="item-name' + (on?' done':'') + '">' + escapeHtml(item.name) + '</div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+    var addRow = editMode ? (
+      '<div class="add-row">' +
+        '<input class="add-input" id="new-item-input" placeholder="新しい種目を入力（例：ランジ 15回）" maxlength="40">' +
+        '<button class="add-btn" id="add-item-btn">追加</button>' +
+      '</div>'
+    ) : '';
+    return (
+      '<div class="list-card">' +
+        '<div class="list-head">' +
+          '<div class="list-title">今日のメニュー</div>' +
+          '<button class="edit-toggle' + (editMode?' on':'') + '" id="edit-toggle-btn">' + (editMode?'完了':'編集') + '</button>' +
+        '</div>' +
+        rows +
+        addRow +
+      '</div>'
+    );
+  }
+
+  function motivationSection(){
+    var today = dateKey(new Date());
+    var rate = rateFor(today);
+    var m = pickMessage(rate, today);
+    return (
+      '<div class="motivation-card' + (m.complete?' complete':'') + '">' +
+        '<div class="motivation-eyebrow">Today\'s Message</div>' +
+        '<div class="motivation-text">' + escapeHtml(m.text) + '</div>' +
+      '</div>'
+    );
+  }
+
+  function backupSection(){
+    var statusClass = backupStatus.kind === 'ok' ? ' ok' : backupStatus.kind === 'err' ? ' err' : '';
+    return (
+      '<div class="backup-card">' +
+        '<div class="backup-title">バックアップ</div>' +
+        '<div class="backup-buttons">' +
+          '<button class="backup-btn primary" id="export-btn">バックアップを保存</button>' +
+          '<button class="backup-btn" id="import-btn">ファイルから復元</button>' +
+        '</div>' +
+        '<div class="backup-status' + statusClass + '">' + escapeHtml(backupStatus.text) + '</div>' +
+        '<div class="backup-hint">保存すると記録をJSONファイルとして書き出せます。機種変更の前や、iPhoneの「ブラウザデータを消去」をする前に保存しておくと安心です。</div>' +
+      '</div>'
+    );
+  }
+
+  function appInnerHtml(){
+    var today = new Date();
+    return (
+      '<div class="eyebrow">今日のトレーニング</div>' +
+      '<div class="date-heading">' + fmtDateJP(today) + '</div>' +
+      ringSection() +
+      historySection() +
+      listSection() +
+      motivationSection() +
+      backupSection()
+    );
+  }
+
+  function paint(){
+    document.getElementById('app').innerHTML = appInnerHtml();
+    bind();
+  }
+
+  function persist(){
+    saveState();
+    paint();
+  }
+
+  function toggleItem(id){
+    var key = dateKey(new Date());
+    var arr = checkedFor(key).slice();
+    var i = arr.indexOf(id);
+    if(i === -1) arr.push(id); else arr.splice(i,1);
+    state.logs[key] = arr;
+    persist();
+  }
+
+  function deleteItem(id){
+    state.items = state.items.filter(function(it){ return it.id !== id; });
+    persist();
+  }
+
+  function renameItem(id, name){
+    var it = state.items.filter(function(x){ return x.id === id; })[0];
+    if(it && name.trim()){ it.name = name.trim(); persist(); }
+  }
+
+  function addItem(name){
+    name = name.trim();
+    if(!name) return;
+    state.items.push({ id: 'i' + Date.now() + Math.floor(Math.random()*1000), name: name });
+    persist();
+  }
+
+  function setBackupStatus(text, kind){
+    backupStatus = { text: text, kind: kind || '' };
+    var el = document.querySelector('.backup-status');
+    if(el){
+      el.textContent = text;
+      el.className = 'backup-status' + (kind ? ' ' + kind : '');
+    }
+    if(backupStatusTimer) clearTimeout(backupStatusTimer);
+    backupStatusTimer = setTimeout(function(){
+      backupStatus = { text:'', kind:'' };
+      var el2 = document.querySelector('.backup-status');
+      if(el2){ el2.textContent=''; el2.className='backup-status'; }
+    }, 4000);
+  }
+
+  function exportBackup(){
+    try{
+      var data = JSON.stringify({
+        app: 'strength-tracker',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        state: state
+      }, null, 2);
+      var blob = new Blob([data], {type:'application/json'});
+      var url = URL.createObjectURL(blob);
+      var d = new Date();
+      var fname = 'training-backup-' + d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + '.json';
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+      setBackupStatus('バックアップを保存しました。', 'ok');
+    }catch(e){
+      setBackupStatus('保存に失敗しました。', 'err');
+    }
+  }
+
+  function importBackup(file){
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var parsed = JSON.parse(reader.result);
+        var incoming = parsed && parsed.state ? parsed.state : parsed;
+        if(!incoming || !Array.isArray(incoming.items) || typeof incoming.logs !== 'object'){
+          throw new Error('invalid shape');
+        }
+        var ok = window.confirm('現在の記録をこのバックアップで上書きします。よろしいですか？');
+        if(!ok) return;
+        state = incoming;
+        saveState();
+        paint();
+        setBackupStatus('バックアップから復元しました。', 'ok');
+      }catch(e){
+        setBackupStatus('読み込みに失敗しました。ファイルを確認してください。', 'err');
+      }
+    };
+    reader.onerror = function(){
+      setBackupStatus('ファイルの読み込みに失敗しました。', 'err');
+    };
+    reader.readAsText(file);
+  }
+
+  function bind(){
+    var app = document.getElementById('app');
+    app.querySelectorAll('[data-toggle]').forEach(function(el){
+      el.addEventListener('click', function(){ toggleItem(el.getAttribute('data-toggle')); });
+    });
+    app.querySelectorAll('[data-del]').forEach(function(el){
+      el.addEventListener('click', function(){ deleteItem(el.getAttribute('data-del')); });
+    });
+    app.querySelectorAll('[data-rename]').forEach(function(el){
+      el.addEventListener('change', function(){ renameItem(el.getAttribute('data-rename'), el.value); });
+    });
+    var editBtn = document.getElementById('edit-toggle-btn');
+    if(editBtn){
+      editBtn.addEventListener('click', function(){ editMode = !editMode; paint(); });
+    }
+    var addBtn = document.getElementById('add-item-btn');
+    var addInput = document.getElementById('new-item-input');
+    if(addBtn && addInput){
+      addBtn.addEventListener('click', function(){ addItem(addInput.value); addInput.value=''; });
+      addInput.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){ addItem(addInput.value); addInput.value=''; }
+      });
+    }
+    var exportBtn = document.getElementById('export-btn');
+    if(exportBtn) exportBtn.addEventListener('click', exportBackup);
+    var importBtn = document.getElementById('import-btn');
+    var fileInput = document.getElementById('restore-input');
+    if(importBtn && fileInput){
+      importBtn.addEventListener('click', function(){ fileInput.click(); });
+      fileInput.addEventListener('change', function(){
+        if(fileInput.files && fileInput.files[0]){
+          importBackup(fileInput.files[0]);
+        }
+        fileInput.value = '';
+      });
+    }
+  }
+
+  paint();
+
+  if('serviceWorker' in navigator){
+    // no service worker shipped — app works fully online via GitHub Pages;
+    // localStorage persists data between visits without one.
+  }
+})();
+</script>
+</body>
+</html>
